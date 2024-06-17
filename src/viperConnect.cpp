@@ -1,23 +1,26 @@
 #include "rclcpp/rclcpp.hpp"
 #include "viper_ui.h"
-class viperConnect: public rclcpp::Node
-{
-private:
-    /* data */
-public:
-    viperConnect(/* args */): Node("viper_test")
-    {
-        RCLCPP_INFO(this -> get_logger(), "Hello Viper");
-    }
-};
 
 int main(int argc, char **argv)
 {
+    // Initialize ROS 2
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<viperConnect>();
-    viper_ui ui;
-    ui.detect_input();
-    rclcpp::spin(node);
+
+    // Create a shared pointer to an instance of viper_ui
+    auto node = std::make_shared<viper_ui>();
+
+    // Spin up in a separate thread or before calling detect_input
+    // to handle callbacks and keep ROS activities running
+    std::thread ros_thread([&]() { rclcpp::spin(node); });
+
+    // Call detect_input function which might be blocking or take time
+    node->detect_input();
+
+    // Shutdown ROS cleanly
     rclcpp::shutdown();
+
+    // Join the thread to ensure clean exit
+    ros_thread.join();
+
     return 0;
 }
