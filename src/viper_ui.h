@@ -4,7 +4,7 @@
 #define MAIN_H_c59bc81a_59f0_11e8_80ee_0023ae6e3892
 
 #include "rclcpp/rclcpp.hpp"
-#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "viper_usb.h"
 #include "viper_queue.h"
@@ -43,7 +43,7 @@ private:
 
     // ROS 2 node and publisher
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr string_publisher_;
-    rclcpp::Publisher<geometry_msgs::msg::Transform>::SharedPtr transform_publisher_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr transform_publisher_;
 
     void init_ros_publisher();
     void publish_string(const std::string &message);

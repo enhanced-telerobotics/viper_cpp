@@ -38,7 +38,9 @@ viper_ui::viper_ui()
 void viper_ui::init_ros_publisher()
 {
     //string_publisher_ = this->create_publisher<std_msgs::msg::String>("viper_info", 10);
-    transform_publisher_ = this->create_publisher<geometry_msgs::msg::Transform>("viper_transform", 10);
+    string vp_pno_node_name = "viper_pose";
+    RCLCPP_INFO(this->get_logger(), "Publishing pose data under '%s'", vp_pno_node_name.c_str());
+    transform_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(vp_pno_node_name, 10);
 }
 
 void viper_ui::publish_string(const std::string &message)
@@ -51,16 +53,18 @@ void viper_ui::publish_string(const std::string &message)
 
 void viper_ui::publish_transform(SENFRAMEDATA *pfd)
 {
-    geometry_msgs::msg::Transform transform;
-    transform.translation.x = pfd->pno.pos[0];
-    transform.translation.y = pfd->pno.pos[1];
-    transform.translation.z = pfd->pno.pos[2];
-    transform.rotation.w = pfd->pno.ori[0];
-    transform.rotation.x = pfd->pno.ori[1];
-    transform.rotation.y = pfd->pno.ori[2];
-    transform.rotation.z = pfd->pno.ori[3];
+    geometry_msgs::msg::PoseStamped vp_pose;
+    vp_pose.header.stamp = this->get_clock()->now();
+    vp_pose.header.frame_id = pfd->SFinfo.bfSnum; // or any other frame of reference
+    vp_pose.pose.position.x = pfd->pno.pos[0];
+    vp_pose.pose.position.y = pfd->pno.pos[1];
+    vp_pose.pose.position.z = pfd->pno.pos[2];
+    vp_pose.pose.orientation.w = pfd->pno.ori[0];
+    vp_pose.pose.orientation.x = pfd->pno.ori[1];
+    vp_pose.pose.orientation.y = pfd->pno.ori[2];
+    vp_pose.pose.orientation.z = pfd->pno.ori[3];
     
-    transform_publisher_->publish(transform);
+    transform_publisher_->publish(vp_pose);
 }
 
 int viper_ui::detect_input()
@@ -386,7 +390,6 @@ uint32_t viper_ui::print_single(viper_usb *pvpr, uint32_t reset_cont)
     pfd = (SENFRAMEDATA *)(resp_pkg + 44);
     for (i = 0; i < num_sens; i++)
         print_pno_record(pfd + i);
-        // publish_transform(pfd + i);
 
     cout << "\n";
 

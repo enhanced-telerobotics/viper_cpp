@@ -11,6 +11,8 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBUSB REQUIRED libusb-1.0)
 
@@ -30,7 +32,7 @@ add_executable(viper_node
 )
 
 # Dependency linking for ROS 2
-ament_target_dependencies(viper_node rclcpp)
+ament_target_dependencies(viper_node rclcpp std_msgs geometry_msgs)
 
 # Linking against libusb and pthread
 target_link_libraries(viper_node 
