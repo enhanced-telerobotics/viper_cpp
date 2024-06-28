@@ -43,7 +43,9 @@ private:
 
     // ROS 2 node and publisher
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr string_publisher_;
-    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr transform_publisher_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr base_transform_publisher_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr left_transform_publisher_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr right_transform_publisher_;
 
     void init_ros_publisher();
     void publish_string(const std::string &message);

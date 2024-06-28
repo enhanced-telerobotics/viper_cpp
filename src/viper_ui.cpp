@@ -37,10 +37,9 @@ viper_ui::viper_ui()
 
 void viper_ui::init_ros_publisher()
 {
-    //string_publisher_ = this->create_publisher<std_msgs::msg::String>("viper_info", 10);
-    string vp_pno_node_name = "viper_pose";
-    RCLCPP_INFO(this->get_logger(), "Publishing pose data under '%s'", vp_pno_node_name.c_str());
-    transform_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(vp_pno_node_name, 10);
+    base_transform_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("viper_pose", 10);
+    left_transform_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("left_pose", 10);
+    right_transform_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("right_pose", 10);
 }
 
 void viper_ui::publish_string(const std::string &message)
@@ -53,18 +52,32 @@ void viper_ui::publish_string(const std::string &message)
 
 void viper_ui::publish_transform(SENFRAMEDATA *pfd)
 {
-    geometry_msgs::msg::PoseStamped vp_pose;
-    vp_pose.header.stamp = this->get_clock()->now();
-    vp_pose.header.frame_id = pfd->SFinfo.bfSnum; // or any other frame of reference
-    vp_pose.pose.position.x = pfd->pno.pos[0];
-    vp_pose.pose.position.y = pfd->pno.pos[1];
-    vp_pose.pose.position.z = pfd->pno.pos[2];
-    vp_pose.pose.orientation.w = pfd->pno.ori[0];
-    vp_pose.pose.orientation.x = pfd->pno.ori[1];
-    vp_pose.pose.orientation.y = pfd->pno.ori[2];
-    vp_pose.pose.orientation.z = pfd->pno.ori[3];
-    
-    transform_publisher_->publish(vp_pose);
+    for (size_t i = 0; i < 3; i++)
+    {
+        geometry_msgs::msg::PoseStamped vp_pose;
+        vp_pose.header.stamp = this->get_clock()->now();
+        vp_pose.header.frame_id = (pfd + i)->SFinfo.bfSnum; // or any other frame of reference
+        vp_pose.pose.position.x = (pfd + i)->pno.pos[0];
+        vp_pose.pose.position.y = (pfd + i)->pno.pos[1];
+        vp_pose.pose.position.z = (pfd + i)->pno.pos[2];
+        vp_pose.pose.orientation.w = (pfd + i)->pno.ori[0];
+        vp_pose.pose.orientation.x = (pfd + i)->pno.ori[1];
+        vp_pose.pose.orientation.y = (pfd + i)->pno.ori[2];
+        vp_pose.pose.orientation.z = (pfd + i)->pno.ori[3];
+        switch (i)
+        {
+        case 1:
+            left_transform_publisher_->publish(vp_pose);
+            break;
+        case 2:
+            right_transform_publisher_->publish(vp_pose);
+            break;
+        default:
+            base_transform_publisher_->publish(vp_pose);
+            break;
+        }
+    }
+
 }
 
 int viper_ui::detect_input()
@@ -360,7 +373,6 @@ uint32_t viper_ui::print_single(viper_usb *pvpr, uint32_t reset_cont)
     // Single Frame
     phdr->seucmd.cmd = CMD_SINGLE_PNO;
     phdr->seucmd.action = CMD_ACTION_GET;
-    
 
     crc = CalcCrc16(cmd_pkg, cmd_size - CRC_SIZE);
     memcpy(cmd_pkg + HDR_END_LOC, &crc, CRC_SIZE);
@@ -493,7 +505,7 @@ void viper_ui::stream_cont(viper_usb *pvpr)
                 pfd = (SENFRAMEDATA *)(resp_pkg + HDR_END_LOC);
                 cout << "Frame: " << *(uint32_t *)(resp_pkg + 12) << "\n";
                 // for (i = 0; i < num_sens; i++)
-                    // print_pno_record(pfd + i);
+                // print_pno_record(pfd + i);
                 publish_transform(pfd);
                 cout << "\n";
             }
@@ -584,7 +596,7 @@ uint32_t viper_ui::set_unit_quaternion(viper_usb *pvpr)
     uint8_t *resp_pkg = new uint8_t[resp_size];
 
     SEUCMD_HDR *phdr = (SEUCMD_HDR *)cmd_pkg;
-    
+
     memset(cmd_pkg, 0, cmd_size);
     phdr->preamble = VIPER_CMD_PREAMBLE;
     phdr->size = cmd_size - 8; // preamble and size not incl in size
@@ -636,12 +648,13 @@ uint32_t viper_ui::set_ftt_stationary(viper_usb *pvpr)
     uint8_t *resp_pkg = new uint8_t[resp_size];
 
     SEUCMD_HDR *phdr = (SEUCMD_HDR *)cmd_pkg;
-    
+
     memset(cmd_pkg, 0, cmd_size);
     phdr->preamble = VIPER_CMD_PREAMBLE;
     phdr->size = cmd_size - 8; // preamble and size not incl in size
     phdr->seucmd.cmd = CMD_FTT_MODE;
     phdr->seucmd.action = CMD_ACTION_SET;
+    phdr->seucmd.arg1 = -1;
     eFTTMode p_payload;
     p_payload = FTT_MODE_1;
 
