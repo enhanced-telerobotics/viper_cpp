@@ -149,7 +149,8 @@ int viper_ui::detect_input()
         case 't':
             reset_boresight(&viper);
             set_unit_quaternion(&viper);
-            set_ftt_stationary(&viper);
+            set_hemisphere(&viper);
+            // set_ftt_stationary(&viper);
             break;
 
         case 'B':
@@ -818,4 +819,35 @@ uint32_t viper_ui::get_tipoffset(viper_usb *pvpr, int sensor_index)
     delete[] resp_pkg;
 
     return rv;
+}
+
+uint32_t viper_ui::set_hemisphere(viper_usb *pvpr)
+{
+    uint32_t rv = 0;
+    const uint32_t HDR_END_LOC = sizeof(SEUCMD_HDR);
+    const uint32_t PAYLOAD_END_LOC = sizeof(HEMISPHERE_CONFIG);
+    uint32_t crc, br;
+
+    uint32_t cmd_size = sizeof(SEUCMD_HDR) + PAYLOAD_END_LOC + CRC_SIZE;
+    uint8_t *cmd_pkg = new uint8_t[cmd_size];
+
+    SEUCMD_HDR *phdr = (SEUCMD_HDR *)cmd_pkg;
+
+    memset(cmd_pkg, 0, cmd_size);
+    phdr->preamble = VIPER_CMD_PREAMBLE;
+    phdr->size = cmd_size - 8; // preamble and size not incl in size
+    phdr->seucmd.cmd = CMD_HEMISPHERE;
+    phdr->seucmd.action = CMD_ACTION_SET;
+    phdr->seucmd.arg1 = -1;
+    HEMISPHERE_CONFIG p_payload;
+    p_payload.bf.track_en = 1;
+    p_payload.bf.auto_en = 1;
+    p_payload.params[0] = 1;
+    p_payload.params[1] = 0;
+    p_payload.params[2] = 0;
+
+    memcpy(cmd_pkg + HDR_END_LOC, &p_payload, PAYLOAD_END_LOC);
+    crc = CalcCrc16(cmd_pkg, cmd_size - 4); // remove crc size from length
+    memcpy(cmd_pkg + HDR_END_LOC + PAYLOAD_END_LOC, &crc, CRC_SIZE);
+    pvpr->usb_send_cmd(cmd_pkg, cmd_size);
 }
