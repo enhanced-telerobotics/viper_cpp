@@ -77,7 +77,6 @@ void viper_ui::publish_transform(SENFRAMEDATA *pfd)
             break;
         }
     }
-
 }
 
 int viper_ui::detect_input()
@@ -148,10 +147,20 @@ int viper_ui::detect_input()
             break;
 
         case 't':
+            reset_boresight(&viper);
             set_unit_quaternion(&viper);
             set_ftt_stationary(&viper);
             break;
 
+        case 'B':
+        case 'b':
+            for (int i{0}; i < 3; i++)
+            {
+                get_boresight(&viper, i);
+                get_tipoffset(&viper, i);
+            }
+
+            break;
         default:
             cout << "\n"
                  << "Input not supported\n\n";
@@ -524,7 +533,7 @@ void viper_ui::print_pno_record(SENFRAMEDATA *pfd)
     cout << sens << "  " << pfd->pno.pos[0] << "  " << pfd->pno.pos[1] << "  " << pfd->pno.pos[2] << "  " << pfd->pno.ori[0] << "  " << pfd->pno.ori[1] << "  " << pfd->pno.ori[2] << "\n";
 }
 
-uint32_t viper_ui::get_boresight(viper_usb *pvpr)
+uint32_t viper_ui::get_boresight(viper_usb *pvpr, int sensor_index)
 {
     uint32_t rv = 0;
     const uint32_t HDR_END_LOC = sizeof(SEUCMD_HDR);
@@ -543,7 +552,7 @@ uint32_t viper_ui::get_boresight(viper_usb *pvpr)
     phdr->size = cmd_size - 8; // preamble and size not incl in size
     phdr->seucmd.cmd = CMD_BORESIGHT;
     phdr->seucmd.action = CMD_ACTION_GET;
-    phdr->seucmd.arg1 = 0;
+    phdr->seucmd.arg1 = sensor_index;
 
     crc = CalcCrc16(cmd_pkg, cmd_size - 4); // remove crc size from length
     memcpy(cmd_pkg + HDR_END_LOC, &crc, CRC_SIZE);
@@ -577,6 +586,73 @@ uint32_t viper_ui::get_boresight(viper_usb *pvpr)
     cout << pbore->params[1] << endl;
     cout << pbore->params[2] << endl;
     cout << pbore->params[3] << endl;
+    delete[] resp_pkg;
+
+    return rv;
+}
+
+uint32_t viper_ui::reset_boresight(viper_usb *pvpr)
+{
+    uint32_t rv = 0;
+    const uint32_t HDR_END_LOC = sizeof(SEUCMD_HDR);
+    uint32_t crc, br;
+
+    uint32_t cmd_size = sizeof(SEUCMD_HDR) + CRC_SIZE;
+    uint8_t *cmd_pkg = new uint8_t[cmd_size];
+
+    uint32_t resp_size = cmd_size + sizeof(BORESIGHT_CONFIG);
+    uint8_t *resp_pkg = new uint8_t[resp_size];
+
+    SEUCMD_HDR *phdr = (SEUCMD_HDR *)cmd_pkg;
+
+    memset(cmd_pkg, 0, sizeof(SEUCMD));
+    phdr->preamble = VIPER_CMD_PREAMBLE;
+    phdr->size = cmd_size - 8; // preamble and size not incl in size
+    phdr->seucmd.cmd = CMD_BORESIGHT;
+    phdr->seucmd.action = CMD_ACTION_RESET;
+    phdr->seucmd.arg1 = 0;
+    phdr->seucmd.arg2 = 1;
+
+    crc = CalcCrc16(cmd_pkg, cmd_size - 4); // remove crc size from length
+    memcpy(cmd_pkg + HDR_END_LOC, &crc, CRC_SIZE);
+
+    pvpr->usb_send_cmd(cmd_pkg, cmd_size);
+    this_thread::sleep_for(std::chrono::milliseconds(CMD_DELAY));
+    br = cmd_queue.wait_and_pop(resp_pkg, resp_size);
+
+    delete[] cmd_pkg;
+    if (br == 0)
+        return 3;
+
+    // check crc of response
+    crc = CalcCrc16(resp_pkg, br - 4);
+    if (crc != *(uint32_t *)(resp_pkg + (br - 4)))
+    {
+        delete[] resp_pkg;
+        return 1; // failed
+    }
+    // make sure you get an ack
+    if (*(uint32_t *)(resp_pkg + 16) != CMD_ACTION_ACK)
+    {
+        delete[] resp_pkg;
+        return 2;
+    }
+
+    // good response print it out
+    BORESIGHT_CONFIG *pbore = (BORESIGHT_CONFIG *)(resp_pkg + HDR_END_LOC);
+    cout << "Boresight Response:\n\n";
+    cout << pbore->params[0] << endl;
+    cout << pbore->params[1] << endl;
+    cout << pbore->params[2] << endl;
+    cout << pbore->params[3] << endl;
+    cout << (pbore + 1)->params[0] << endl;
+    cout << (pbore + 1)->params[1] << endl;
+    cout << (pbore + 1)->params[2] << endl;
+    cout << (pbore + 1)->params[3] << endl;
+    cout << pbore->params[0] << endl;
+    cout << (pbore + 2)->params[1] << endl;
+    cout << (pbore + 2)->params[2] << endl;
+    cout << (pbore + 2)->params[3] << endl;
     delete[] resp_pkg;
 
     return rv;
@@ -682,6 +758,64 @@ uint32_t viper_ui::set_ftt_stationary(viper_usb *pvpr)
         delete[] resp_pkg;
         return 2;
     }
+
+    return rv;
+}
+
+uint32_t viper_ui::get_tipoffset(viper_usb *pvpr, int sensor_index)
+{
+    uint32_t rv = 0;
+    const uint32_t HDR_END_LOC = sizeof(SEUCMD_HDR);
+    uint32_t crc, br;
+
+    uint32_t cmd_size = sizeof(SEUCMD_HDR) + CRC_SIZE;
+    uint8_t *cmd_pkg = new uint8_t[cmd_size];
+
+    uint32_t resp_size = cmd_size + sizeof(BORESIGHT_CONFIG);
+    uint8_t *resp_pkg = new uint8_t[resp_size];
+
+    SEUCMD_HDR *phdr = (SEUCMD_HDR *)cmd_pkg;
+
+    memset(cmd_pkg, 0, sizeof(SEUCMD));
+    phdr->preamble = VIPER_CMD_PREAMBLE;
+    phdr->size = cmd_size - 8; // preamble and size not incl in size
+    phdr->seucmd.cmd = CMD_TIP_OFFSET;
+    phdr->seucmd.action = CMD_ACTION_GET;
+    phdr->seucmd.arg1 = sensor_index;
+
+    crc = CalcCrc16(cmd_pkg, cmd_size - 4); // remove crc size from length
+    memcpy(cmd_pkg + HDR_END_LOC, &crc, CRC_SIZE);
+
+    pvpr->usb_send_cmd(cmd_pkg, cmd_size);
+    this_thread::sleep_for(std::chrono::milliseconds(CMD_DELAY));
+    br = cmd_queue.wait_and_pop(resp_pkg, resp_size);
+
+    delete[] cmd_pkg;
+    if (br == 0)
+        return 3;
+
+    // check crc of response
+    crc = CalcCrc16(resp_pkg, br - 4);
+    if (crc != *(uint32_t *)(resp_pkg + (br - 4)))
+    {
+        delete[] resp_pkg;
+        return 1; // failed
+    }
+    // make sure you get an ack
+    if (*(uint32_t *)(resp_pkg + 16) != CMD_ACTION_ACK)
+    {
+        delete[] resp_pkg;
+        return 2;
+    }
+
+    // good response print it out
+    TIP_OFFSET_CONFIG *pbore = (TIP_OFFSET_CONFIG *)(resp_pkg + HDR_END_LOC);
+    cout << "Tip offset Response:\n\n";
+    cout << pbore->params[0] << endl;
+    cout << pbore->params[1] << endl;
+    cout << pbore->params[2] << endl;
+
+    delete[] resp_pkg;
 
     return rv;
 }

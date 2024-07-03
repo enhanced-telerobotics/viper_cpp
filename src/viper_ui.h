@@ -34,7 +34,9 @@ private:
     uint32_t start_continuous(viper_usb *pvpr);
     uint32_t set_unit_quaternion(viper_usb *pvpr);
     uint32_t set_ftt_stationary(viper_usb *pvpr);
-    uint32_t get_boresight(viper_usb *pvpr);
+    uint32_t reset_boresight(viper_usb *pvpr);
+    uint32_t get_boresight(viper_usb *pvpr, int sensor_index);
+    uint32_t get_tipoffset(viper_usb *pvpr, int sensor_index);
     void read_usb_data(viper_usb *pvpr);
     void read_viper_data(viper_usb *pvpr);
 
