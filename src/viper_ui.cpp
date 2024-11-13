@@ -819,3 +819,56 @@ uint32_t viper_ui::get_tipoffset(viper_usb *pvpr, int sensor_index)
 
     return rv;
 }
+
+// Set hemisphere
+uint32_t viper_ui::set_hemisphere(viper_usb *pvpr)
+{
+    uint32_t rv = 0;
+    const uint32_t HDR_END_LOC = sizeof(SEUCMD_HDR);
+    const uint32_t PAYLOAD_END_LOC = sizeof(HEMISPHERE_CONFIG);
+    uint32_t crc, br;
+
+    uint32_t cmd_size = sizeof(SEUCMD_HDR) + PAYLOAD_END_LOC + CRC_SIZE;
+    uint8_t *cmd_pkg = new uint8_t[cmd_size];
+
+    uint32_t resp_size = cmd_size + sizeof(HEMISPHERE_CONFIG);
+    uint8_t *resp_pkg = new uint8_t[resp_size];
+
+    SEUCMD_HDR *phdr = (SEUCMD_HDR *)cmd_pkg;
+
+    memset(cmd_pkg, 0, cmd_size);
+    phdr->preamble = VIPER_CMD_PREAMBLE;
+    phdr->size = cmd_size - 8; // preamble and size not incl in size
+    phdr->seucmd.cmd = CMD_FTT_MODE;
+    phdr->seucmd.action = CMD_ACTION_SET;
+    phdr->seucmd.arg1 = -1;
+    HEMISPHERE_CONFIG p_payload;
+    p_payload.bf.track_en = 1;
+
+    memcpy(cmd_pkg + HDR_END_LOC, &p_payload, PAYLOAD_END_LOC);
+    crc = CalcCrc16(cmd_pkg, cmd_size - 4); // remove crc size from length
+    memcpy(cmd_pkg + HDR_END_LOC + PAYLOAD_END_LOC, &crc, CRC_SIZE);
+    pvpr->usb_send_cmd(cmd_pkg, cmd_size);
+    this_thread::sleep_for(std::chrono::milliseconds(CMD_DELAY));
+    br = cmd_queue.wait_and_pop(resp_pkg, resp_size);
+
+    delete[] cmd_pkg;
+    if (br == 0)
+        return 3;
+
+    // check crc of response
+    crc = CalcCrc16(resp_pkg, br - 4);
+    if (crc != *(uint32_t *)(resp_pkg + (br - 4)))
+    {
+        delete[] resp_pkg;
+        return 1; // failed
+    }
+    // make sure you get an ack
+    if (*(uint32_t *)(resp_pkg + 16) != CMD_ACTION_ACK)
+    {
+        delete[] resp_pkg;
+        return 2;
+    }
+
+    return rv;
+}
