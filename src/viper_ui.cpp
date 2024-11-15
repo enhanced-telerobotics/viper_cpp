@@ -149,7 +149,8 @@ int viper_ui::detect_input()
         case 't':
             reset_boresight(&viper);
             set_unit_quaternion(&viper);
-            set_ftt_stationary(&viper);
+            // set_ftt_stationary(&viper);
+            set_hemisphere(&viper);
             break;
 
         case 'B':
@@ -839,7 +840,7 @@ uint32_t viper_ui::set_hemisphere(viper_usb *pvpr)
     memset(cmd_pkg, 0, cmd_size);
     phdr->preamble = VIPER_CMD_PREAMBLE;
     phdr->size = cmd_size - 8; // preamble and size not incl in size
-    phdr->seucmd.cmd = CMD_FTT_MODE;
+    phdr->seucmd.cmd = CMD_HEMISPHERE;
     phdr->seucmd.action = CMD_ACTION_SET;
     phdr->seucmd.arg1 = -1;
     HEMISPHERE_CONFIG p_payload;
